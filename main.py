@@ -50,6 +50,14 @@ def generate_image(prompt, negative_prompt, steps=30):
     img.save("output_image.png")
     return img
 
+def cut_off_end(text):
+    last_period_index = text.rfind('.')
+    
+    if last_period_index != -1:
+        return text[:last_period_index+1]
+    else:
+        return text
+    
 ##############################
 
 os.environ['OPENAI_API_KEY'] = apikey
@@ -92,7 +100,7 @@ image_prompt_template = """
     Story:
     {story_text}
 
-    What visual elements would best illustrate this narrative?
+    What visual elements would best illustrate this narrative to be shown in a children's book?
     """
 
 prompt = PromptTemplate(
@@ -145,20 +153,22 @@ with col2:
         ('Kinder (3-6 years old)', 'Elementary (6-9 years old)', 'Middle (10+ years old)')
     )
 
+story_segments = []
 if st.button('Generate!'):
     wiki = WikipediaAPIWrapper()
     wiki_research = wiki.run(event_text)
     prompt_with_input = prompt.format(event=event_text, moment=option_moment, audience=option_audience, wikipedia=wiki_research)
     
     story = llm(prompt_with_input)
-    st.write(story)
+    story = cut_off_end(story)
+    # st.write(story)
 
     story_segments = story.split("\n\n")  # text split, adjust as needed
     image_segments = []
 
     for seg in story_segments:
         image_prompt = generate_image_prompt(seg, image_prompt_template)
-        image_segments.append(generate_image(image_prompt, "semi-realistic, high-quality"))
+        image_segments.append(generate_image(image_prompt, "cartoon, for-children"))
 
     if 'story_segments' not in st.session_state:
         st.session_state.story_segments = []
@@ -195,3 +205,15 @@ if 'story_segments' in st.session_state and len(st.session_state.story_segments)
     if prev.button('Prev Page'):
         if st.session_state.current_segment > 0:
             st.session_state.current_segment -= 1
+
+    # if (st.session_state.current_segment == len(st.session_state.story_segments)):
+    #     pdf_file_name = f"{event_text}.pdf"
+    #     st.write(pdf_file_name)
+    #     pdf_data = create_pdf(story_segments, image_segments)
+
+    #     st.download_button(
+    #         label="Download Story as PDF",
+    #         data=pdf_data,
+    #         file_name=pdf_file_name,
+    #         mime="application/pdf"
+    #     )
