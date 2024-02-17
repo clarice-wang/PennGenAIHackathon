@@ -14,31 +14,34 @@ template = """
     ## Historical Storytelling Prompt
 
     ### Objective:
-    Craft a narrative centered around a specific historical event, paying close attention to a particular moment if highlighted. Your story should adhere to the following criteria:
-    - **Accuracy**: Base your story on factual information, primarily from the provided Wikipedia research.
-    - **Audience Engagement**: Tailor the language and storytelling style to the specified audience's understanding and interests.
-    - **Structure**: Organize your narrative into five distinct segments, each labeled with its corresponding segment number. Segments should comprise one to two sentences, ensuring clarity and conciseness.
+    Craft a narrative about a historical event, focusing on a specified moment. Your story must be accurate and tailored for the intended audience. It should be structured into exactly five segments, with each segment being a single sentence for brevity and clarity.
 
-    ### Guidelines:
-    1. **Event and Moment**: Focus on the given event, especially the outlined moment, to anchor your story.
-    2. **Language**: Use vocabulary and sentence structures appropriate for the audience age group. Aim for simplicity and clarity, avoiding complex jargon or concepts.
-    3. **Segments**: Clearly delineate each part of your story using newlines, ensuring a smooth and logical flow from one segment to the next.
-
-    ### Example:
-    - **Event**: World War I
-    - **Moment**: How It Started
-    - **Audience**: Elementary (6-9 years old)
-    - **Approach**: Narrate the causes leading to World War I in a manner easily graspable by young children, using straightforward language and breaking down complex ideas into digestible pieces.
-
-    ### Template:
-    Below are the details for your story creation:
+    ### Instructions:
     - **EVENT**: {event}
     - **MOMENT**: {moment}
     - **AUDIENCE**: {audience}
     - **WIKIPEDIA**: {wikipedia}
 
+    ### Story Structure:
+    - Begin the story by introducing the event.
+    - Progress to the specified moment.
+    - Include pivotal details that are age-appropriate.
+    - Conclude with the impact or resolution of the moment.
+
     ### Your Response:
-    (Your crafted story goes here, following the structured guidelines provided above.)
+    Create a story with exactly five segments. Ensure there is a newline between each segment. Each segment should be one sentence long.
+
+    [Begin the story with an introduction to the event.]
+    NEW LINE
+    [Continue with the build-up to the specified moment.]
+    NEW LINE
+    [Detail the key moment, focusing on pivotal actions or decisions.]
+    NEW LINE
+    [Describe the immediate consequences of the moment.]
+    NEW LINE
+    [Conclude with the broader impact or resolution of the event.]
+
+    Please use simple language suitable for the age group (audience) and keep the information accurate according to the wikipedia research provided.
 """
 
 prompt = PromptTemplate(
@@ -63,13 +66,10 @@ event_text = st.text_area(label="", placeholder="Enter a historical event...", k
 col1, col2 = st.columns(2)
 
 with col1:
-    # st.markdown("## header")
-
     option_moment = st.selectbox(
         'Is there any specific moment the story should focus on?',
-        ('How It Started', 'How It Ended', 'Random Moment', 'Other...')
+        ('How It Started', 'The Whole Story', 'Random Moment', 'Other...')
     )
-    # make optional if user response was alr specific
 
     if option_moment == "Other...": 
         option_moment = st.text_input("Enter your other option...")
@@ -79,25 +79,16 @@ with col2:
         'What age group is your audience in?',
         ('Kinder (3-6 years old)', 'Elementary (6-9 years old)', 'Middle (10+ years old)')
     )
-    # st.markdown("**bold**")
-    # st.image(image='andreasson2.jpeg', width=500, caption='https://saraandreasson.com/')
-    
-# char_text = st.text_area(label="", placeholder="Enter a main character...", key="char_input")
-
-# def get_text():
-#     input_text = st.text_area(label="", placeholder="Your Email...", key="email_input")
-#     return input_text
 
 if st.button('Generate!'):
     wiki = WikipediaAPIWrapper()
     wiki_research = wiki.run(event_text)
     prompt_with_input = prompt.format(event=event_text, moment=option_moment, audience=option_audience, wikipedia=wiki_research)
     
-    # story = llm(prompt_with_input)
-    story_segments = llm(prompt_with_input).split("\n\n")  # Example split, adjust as needed
+    story = llm(prompt_with_input)
+    story_segments = story.split("NEW LINE")  # text split, adjust as needed
     st.session_state.story_segments = story_segments
-    st.session_state.current_segment = 0  # Initialize or reset the current segment
-    # story = "temp story"
+    st.session_state.current_segment = 0  # initialize or reset the current segment
 
 # display the current segment and controls
 if 'story_segments' in st.session_state and len(st.session_state.story_segments) > 0:
@@ -106,14 +97,14 @@ if 'story_segments' in st.session_state and len(st.session_state.story_segments)
         st.write(st.session_state.story_segments[st.session_state.current_segment])
 
     with col2:
-        st.write('images go here')  # Placeholder for future image integration
+        st.write('images go here')  # placeholder for future image integration
 
     # progress bar
     progress = (st.session_state.current_segment + 1) / len(st.session_state.story_segments)
     st.progress(progress)
 
     # navigation buttons
-    prev, _ ,next = st.columns([4, 4, 2])  # Adjust spacing as needed
+    prev, _ ,next = st.columns([4, 4, 2])  # adjust spacing as needed
     if next.button('Next Page'):
         if st.session_state.current_segment < len(st.session_state.story_segments) - 1:
             st.session_state.current_segment += 1
@@ -121,3 +112,6 @@ if 'story_segments' in st.session_state and len(st.session_state.story_segments)
     if prev.button('Prev Page'):
         if st.session_state.current_segment > 0:
             st.session_state.current_segment -= 1
+
+
+# foreground and background specification
