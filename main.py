@@ -77,14 +77,10 @@ template = """
     ### Your Response:
     Create a story with exactly five segments. Ensure there is a newline between each segment. Each segment should be one sentence long.
 
-    [Begin the story with an introduction to the event.]
-    NEW LINE
-    [Continue with the build-up to the specified moment.]
-    NEW LINE
-    [Detail the key moment, focusing on pivotal actions or decisions.]
-    NEW LINE
-    [Describe the immediate consequences of the moment.]
-    NEW LINE
+    [Begin the story with an introduction to the event.]\n
+    [Continue with the build-up to the specified moment.]\n
+    [Detail the key moment, focusing on pivotal actions or decisions.]\n
+    [Describe the immediate consequences of the moment.]\n
     [Conclude with the broader impact or resolution of the event.]
 
     Please use simple language suitable for the age group (audience) and keep the information accurate according to the wikipedia research provided.
@@ -155,22 +151,36 @@ if st.button('Generate!'):
     prompt_with_input = prompt.format(event=event_text, moment=option_moment, audience=option_audience, wikipedia=wiki_research)
     
     story = llm(prompt_with_input)
+    st.write(story)
+
     story_segments = story.split("\n\n")  # text split, adjust as needed
+    image_segments = []
+
+    for seg in story_segments:
+        image_prompt = generate_image_prompt(seg, image_prompt_template)
+        image_segments.append(generate_image(image_prompt, "semi-realistic, high-quality"))
+
+    if 'story_segments' not in st.session_state:
+        st.session_state.story_segments = []
+    if 'image_segments' not in st.session_state:
+        st.session_state.image_segments = []
+    if 'current_segment' not in st.session_state:
+        st.session_state.current_segment = 0
+
     st.session_state.story_segments = story_segments
-    st.session_state.current_segment = 0  # initialize or reset the current segment
+    st.session_state.image_segments = image_segments
 
 # display the current segment and controls
 if 'story_segments' in st.session_state and len(st.session_state.story_segments) > 0:
     current_story_segment = st.session_state.story_segments[st.session_state.current_segment]
-    image_prompt = generate_image_prompt(current_story_segment, image_prompt_template)
+    current_image_segment = st.session_state.image_segments[st.session_state.current_segment]
 
     col1, col2 = st.columns(2)
     with col1:
         st.write(current_story_segment)
 
     with col2:
-        img = generate_image(image_prompt, "semi-realistic, high-quality")
-        st.image(img)
+        st.image(current_image_segment)
 
     # progress bar
     progress = (st.session_state.current_segment + 1) / len(st.session_state.story_segments)
