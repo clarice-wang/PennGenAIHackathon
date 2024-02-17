@@ -1,5 +1,5 @@
 import os
-from apikey import apikey
+from apikey import apikey, baseten_api_key
 
 import streamlit as st
 from langchain.llms import OpenAI
@@ -7,8 +7,54 @@ from langchain import PromptTemplate
 from langchain.chains import LLMChain, SequentialChain
 from langchain.utilities import WikipediaAPIWrapper
 
+import requests
+import base64
+from PIL import Image
+from io import BytesIO
+
+# Replace the empty string with your model id below
+model_id = "4w7pnv1w"
+baseten_api_key = os.environ["BASETEN_API_KEY"]
+BASE64_PREAMBLE = "data:image/png;base64,"
+
+# Function used to convert a base64 string to a PIL image
+def b64_to_pil(b64_str):
+    return Image.open(BytesIO(base64.b64decode(b64_str.replace(BASE64_PREAMBLE, ""))))
+
+def generate_image(prompt, negative_prompt, steps=30):
+    # Make sure you have set the model_id and baseten_api_key before calling this function
+    data = {
+      "prompt": prompt,
+      "negative_prompt": negative_prompt,
+      "steps": steps
+    }
+
+    # Call model endpoint
+    res = requests.post(
+        f"https://model-{model_id}.api.baseten.co/production/predict",
+        headers={"Authorization": f"Api-Key {baseten_api_key}"},
+        json=data
+    )
+
+    # Check if the request was successful
+    if res.status_code != 200:
+        raise Exception(f"Request failed with status code: {res.status_code}")
+
+    # Get output image
+    output = res.json().get("output")
+    if output is None:
+        raise Exception("No output from the model")
+
+    # Convert the base64 model output to an image
+    img = b64_to_pil(output)
+    img.save("output_image.png")
+    return img
+
+##############################
+
 os.environ['OPENAI_API_KEY'] = apikey
 
+##### DEFINING PROMPTS #####
 
 template = """
     ## Historical Storytelling Prompt
@@ -44,10 +90,26 @@ template = """
     Please use simple language suitable for the age group (audience) and keep the information accurate according to the wikipedia research provided.
 """
 
+image_prompt_template = """
+    Create an image prompt that encapsulates the following story:
+
+    Story:
+    {story_text}
+
+    What visual elements would best illustrate this narrative?
+    """
+
 prompt = PromptTemplate(
     input_variables=['event','moment','audience','wikipedia'],
     template=template,
 )
+
+def generate_image_prompt(story_text, image_prompt_template):
+    image_prompt_text = image_prompt_template.format(story_text=story_text)
+    image_prompt = image_prompt_llm(image_prompt_text)
+    return image_prompt
+
+##### LOADING LLMS #####
 
 def load_LLM():
     """logic for loading the chain you want to use should go here"""
@@ -55,6 +117,13 @@ def load_LLM():
     return llm
 
 llm = load_LLM()
+
+def load_image_prompt_LLM():
+    # You can use the same OpenAI LLM or a different configuration if needed
+    image_prompt_llm = OpenAI(temperature=0.7)  # Adjust temperature as needed for image prompts
+    return image_prompt_llm
+
+image_prompt_llm = load_image_prompt_LLM()
 
 ##### PAGE LAYOUT BEGINS #####
 
@@ -86,18 +155,22 @@ if st.button('Generate!'):
     prompt_with_input = prompt.format(event=event_text, moment=option_moment, audience=option_audience, wikipedia=wiki_research)
     
     story = llm(prompt_with_input)
-    story_segments = story.split("NEW LINE")  # text split, adjust as needed
+    story_segments = story.split("\n\n")  # text split, adjust as needed
     st.session_state.story_segments = story_segments
     st.session_state.current_segment = 0  # initialize or reset the current segment
 
 # display the current segment and controls
 if 'story_segments' in st.session_state and len(st.session_state.story_segments) > 0:
+    current_story_segment = st.session_state.story_segments[st.session_state.current_segment]
+    image_prompt = generate_image_prompt(current_story_segment, image_prompt_template)
+
     col1, col2 = st.columns(2)
     with col1:
-        st.write(st.session_state.story_segments[st.session_state.current_segment])
+        st.write(current_story_segment)
 
     with col2:
-        st.write('images go here')  # placeholder for future image integration
+        img = generate_image(image_prompt, "semi-realistic, high-quality")
+        st.image(img)
 
     # progress bar
     progress = (st.session_state.current_segment + 1) / len(st.session_state.story_segments)
@@ -112,6 +185,3 @@ if 'story_segments' in st.session_state and len(st.session_state.story_segments)
     if prev.button('Prev Page'):
         if st.session_state.current_segment > 0:
             st.session_state.current_segment -= 1
-
-
-# foreground and background specification
